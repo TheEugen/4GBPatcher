@@ -42,11 +42,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	HWND hwnd = CreateWindowEx(
 		0,                              // Optional window styles.
 		CLASS_NAME,                     // Window class
-		L"4GB Patcher",    // Window text
+		APP_NAME,    // Window text
 		WS_OVERLAPPED | WS_MINIMIZEBOX | WS_SYSMENU,            // Window style
 
 		// Size and position
-		CW_USEDEFAULT, CW_USEDEFAULT, 420, 175,
+		CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_SIZE_X, WINDOW_SIZE_Y,
 
 		NULL,       // Parent window    
 		NULL,       // Menu
@@ -60,6 +60,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		return 0;
 	}
 
+	// get primary display resolution and place window in the middle of the workarea (screen without taskbar)
+	RECT rc;
+	SystemParametersInfo(SPI_GETWORKAREA, 0, (void*)&rc, 0);
+	int xPos = rc.right / 2 - WINDOW_SIZE_X / 2;
+	int yPos = rc.bottom / 2 - WINDOW_SIZE_Y / 2;
+	SetWindowPos(hwnd, 0, xPos, yPos, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+
 	// textwindows
 	CreateWindow(TEXT("static"), TEXT(""), WS_VISIBLE | WS_CHILD | SS_CENTERIMAGE | WS_BORDER, 10, 10, 290, 25, hwnd, (HMENU)IDC_TEXT_PATH, NULL, NULL);
 	CreateWindow(TEXT("static"), TEXT("Choose file to view application status"), WS_VISIBLE | WS_CHILD | SS_CENTER | SS_CENTERIMAGE, 0, 50, 420, 25, hwnd, (HMENU)IDC_TEXT_STATUS, NULL, NULL);
@@ -72,7 +79,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	EnableWindow(CreateWindow(TEXT("button"), TEXT(BTN_TEXT_UNPATCH), WS_VISIBLE | WS_CHILD | WS_BORDER, 150, 100, 100, 25, hwnd, (HMENU)IDC_BUTTON_UNPATCH, NULL, NULL), false);
 	
 	// init pathhandler
-	PathHandler* pathhandler = NULL;
+	PathHandler* pathhandler = new PathHandler();
 
 	// give main window reference to pathhandler
 	SetWindowLongPtr(hwnd, GWL_USERDATA, (LONG)pathhandler);
@@ -96,8 +103,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	switch (uMsg)
 	{
 	case WM_DESTROY:
+	{
 		PostQuitMessage(0);
+
+		// return 0 means we have successfully handled a message
 		return 0;
+	}
 	case WM_COMMAND:
 	{
 		// get pathhandler reference
@@ -117,6 +128,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
 
 				// filter for openfile dialog, only .exe should be used
+				// TODO: dll files?
 				COMDLG_FILTERSPEC filterspec[1] = {{L"Executable Files", L"*.exe"}};
 				pFileOpen->SetFileTypes(1, filterspec);
 
@@ -138,103 +150,96 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 							if (SUCCEEDED(hr))
 							{
-								// if pathhandler is null (first time choosing) create new with filepath
-								if (!pathhandler)
-									pathhandler = new PathHandler(pszFilePath);
+								pathhandler->setPath(pszFilePath);
 
-								if (detectPatchStatus(pathhandler->getPath(), hwnd))
+								const unsigned int patchStatus = detectPatchStatus(pathhandler->getPath(), hwnd);
+								
+								if (patchStatus > 0)
 								{
-									OutputDebugStringW(TEXT("status: patched\n"));
-
 									// create message for output window
-									std::wstring appStatus = OUT_TEXT_APPSTATUS_PATCHED;
-									LPCWSTR lpAppStatus = appStatus.c_str();
+									LPCWSTR appStatus;
 
 									// find handle to patchstatus window
 									HWND hwndPatchStatus = GetDlgItem(hwnd, IDC_TEXT_STATUS);
 
-									// send appstatus to output window
-									SendMessage(hwndPatchStatus, WM_SETTEXT, NULL, (LPARAM)lpAppStatus);
-
-									// find handle to textpath window
+									// find handle to filepath window
 									HWND hwndFilepath = GetDlgItem(hwnd, IDC_TEXT_PATH);
+
+									if (patchStatus == 1)
+									{
+										OutputDebugStringW(TEXT("status: patched\n"));
+
+										appStatus = OUT_TEXT_APPSTATUS_PATCHED;
+
+										// button control
+										toggleButtons(hwnd, true);
+									}
+									else
+									{
+										OutputDebugStringW(TEXT("status: unpatched\n"));
+
+										appStatus = OUT_TEXT_APPSTATUS_UNPATCHED;
+
+										// button control
+										toggleButtons(hwnd, false);
+									}
+
+									// send appstatus to output window
+									SendMessage(hwndPatchStatus, WM_SETTEXT, NULL, (LPARAM)appStatus);
 
 									// send file path to output window
 									SendMessage(hwndFilepath, WM_SETTEXT, NULL, (LPARAM)pathhandler->getPath().c_str());
-
-									// button control
-									toggleButtons(hwnd, true);
-
-								}
-								else
-								{
-									OutputDebugStringW(TEXT("status: unpatched\n"));
-
-									// create message for output window
-									std::wstring appStatus = OUT_TEXT_APPSTATUS_UNPATCHED;
-									LPCWSTR lpAppStatus = appStatus.c_str();
-
-									// find status output window handle
-									HWND hwndPatchStatus = GetDlgItem(hwnd, IDC_TEXT_STATUS);
-
-									// send the appstatus to output window
-									SendMessage(hwndPatchStatus, WM_SETTEXT, NULL, (LPARAM)lpAppStatus);
-
-									// find path output window handle
-									HWND hwndFilepath = GetDlgItem(hwnd, IDC_TEXT_PATH);
-
-									// send the filepath to output window
-									SendMessage(hwndFilepath, WM_SETTEXT, NULL, (LPARAM)pathhandler->getPath().c_str());
-
-									// button control
-									toggleButtons(hwnd, false);
-								}
+								}		
 							}
+
 							// ?
 							CoTaskMemFree(pszFilePath);
 							pItem->Release();
 						}
 					}
+
 					pFileOpen->Release();
 				}
+
 				CoUninitialize();
 			}
 		}
 		else if ((LOWORD(wParam) == IDC_BUTTON_PATCH) || (LOWORD(wParam) == IDC_BUTTON_UNPATCH))
 		{
 			// debug
-			OutputDebugStringW(TEXT("received patch btn click"));
+			if (LOWORD(wParam) == IDC_BUTTON_PATCH)
+				OutputDebugStringW(TEXT("received patch btn click"));
+			else
+				OutputDebugStringW(TEXT("received unpatch btn click"));
 
 			// patch the file
 			if (patchFile(pathhandler->getPath(), (LOWORD(wParam) == IDC_BUTTON_PATCH), hwnd))
 			{
+				// find output window handle
+				HWND hwndPatchStatus = (GetDlgItem(hwnd, IDC_TEXT_STATUS));
+
 				// create message for status output window
-				std::wstring output_statusW;
+				LPCWSTR outputStatusW;
 				LPCWSTR messageBoxWStr;
 
 				if (LOWORD(wParam) == IDC_BUTTON_PATCH)
 				{
-					output_statusW = OUT_TEXT_APPSTATUS_PATCHED;
-					messageBoxWStr = L"Application successfully patched!";
-					toggleButtons(hwnd, true);
+					outputStatusW = OUT_TEXT_APPSTATUS_PATCHED;
+					messageBoxWStr = OUT_TEXT_MB_PATCHED;
+					toggleButtons(hwnd, true);				
 				}
 				else
 				{
-					output_statusW = OUT_TEXT_APPSTATUS_UNPATCHED;
-					messageBoxWStr = L"Application successfully unpatched!";
+					outputStatusW = OUT_TEXT_APPSTATUS_UNPATCHED;
+					messageBoxWStr = OUT_TEXT_MB_UNPATCHED;
 					toggleButtons(hwnd, false);
 				}
 
-				LPCWSTR output_statusWLP = output_statusW.c_str();
-
-				// find output window handle
-				HWND hwndPatchStatus = (GetDlgItem(hwnd, IDC_TEXT_STATUS));
-
 				// send appstatus to output window
-				SendMessage(hwndPatchStatus, WM_SETTEXT, NULL, (LPARAM)output_statusWLP);
+				SendMessage(hwndPatchStatus, WM_SETTEXT, NULL, (LPARAM)outputStatusW);
 
-				// show message box to user
-				MessageBox(hwnd, messageBoxWStr, L"4GB Patcher", MB_OK);
+				// show "successfully un/patched!" message box to user
+				MessageBox(hwnd, messageBoxWStr, APP_NAME, MB_OK);
 			}
 			
 		}
@@ -242,6 +247,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			PostQuitMessage(0);
 		}
+
+		return 0;
 	}
 	case WM_CTLCOLORSTATIC:
 	{
@@ -260,5 +267,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return 0;
 	}
 
+	// called when didn't processed any message
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }

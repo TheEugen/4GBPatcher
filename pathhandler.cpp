@@ -1,9 +1,9 @@
 #include "pathhandler.h"
 
 
-PathHandler::PathHandler(std::wstring filepath)
+void PathHandler::setPath(std::wstring filepath)
 {
-	m_filepath = std::wstring(filepath);
+	m_filepath = filepath;
 }
 
 std::wstring PathHandler::getPath()

@@ -12,35 +12,35 @@
 
 void catchOpenFileError(HWND hwnd)
 {
-	std::wstring error_msg;
+	std::wstring errorMsg;
 	switch (errno)
 	{
 		// access denied (e.g. .exe is running atm)
 	case EACCES:
 	{
-		error_msg = L"Access denied, is the program running or the file read-only?";
+		errorMsg = APP_ERROR_OPENFILE_ACCESS;
 		break;
 	}
 	// file too big
 	case EFBIG:
 	{
-		error_msg = L"Could not open file because it's too big";
+		errorMsg = APP_ERROR_OPENFILE_FILETOOBIG;
 		break;
 	}
 	// path too long
 	case ENAMETOOLONG:
 	{
-		error_msg = L"Could not open file because file path is too long";
+		errorMsg = APP_ERROR_OPENFILE_PATHTOOLONG;
 		break;
 	}
 	default:
 	{
-		error_msg = L"Unknown error occured";
+		errorMsg = APP_ERROR_OPENFILE_UNKNOWN;
 	}
 	}
 
 	OutputDebugStringW(L"error opening file");
-	MessageBox(hwnd, error_msg.c_str(), L"4GBPatcher", MB_OK);
+	MessageBox(hwnd, errorMsg.c_str(), APP_NAME, MB_OK);
 }
 
 
@@ -51,20 +51,20 @@ bool patchFile(std::wstring filepath, bool toBePatched, HWND hwnd)
 	// copy file and create backup
 	std::error_code ec;
 	std::wstring bak_filepath;
+
 	if (toBePatched)
-		bak_filepath = filepath + L".unpatched.backup";
+		bak_filepath = filepath + POSTFIX_UNPATCHED;
 	else
-		bak_filepath = filepath + L".patched.backup";
+		bak_filepath = filepath + POSTFIX_PATCHED;
 
 	auto copy_options = std::filesystem::copy_options::none;
 
-	// backup file already exists
+	// check if backup file already exists
 	if (std::filesystem::is_regular_file(bak_filepath))
 	{
-		// show window to ask user permission to overwrite existing file
+		// show window to ask user for permission to overwrite existing file
 		const std::wstring askOverwriteWStr = L"File " + bak_filepath + L" already exists, do you want to overwrite it?";
-		LPCWSTR askOverwriteLPCWStr = askOverwriteWStr.c_str();
-		const int overwriteYesNo = MessageBox(hwnd, askOverwriteLPCWStr, L"4GB Patcher", MB_YESNO);
+		const int overwriteYesNo = MessageBox(hwnd, askOverwriteWStr.c_str(), APP_NAME, MB_YESNO);
 		switch (overwriteYesNo)
 		{
 		case IDYES:
@@ -79,10 +79,10 @@ bool patchFile(std::wstring filepath, bool toBePatched, HWND hwnd)
 		}
 	}
 
-	// not enough memory? program will terminate
+	// create backup, if it fails -> not enough memory? program will terminate
 	if (!std::filesystem::copy_file(filepath, bak_filepath, copy_options, ec))
 	{
-		MessageBox(hwnd, L"Error occured creating backup file, aborting", L"4GB Patcher", MB_OK);
+		MessageBox(hwnd, APP_ERROR_CREATING_BACKUP, APP_NAME, MB_OK);
 		return false;
 	}
 	
@@ -98,7 +98,7 @@ bool patchFile(std::wstring filepath, bool toBePatched, HWND hwnd)
 	fseek(pFile, OFFSET_POSITION, SEEK_SET);
 
 	// extract PE offset
-	const unsigned int PE_offset = (unsigned int)fgetc(pFile);
+	const unsigned int PE_offset = (unsigned int) fgetc(pFile);
 
 	// point to laa flag position
 	fseek(pFile, LAA_BYTE_POSITION, SEEK_SET);
@@ -121,16 +121,19 @@ bool patchFile(std::wstring filepath, bool toBePatched, HWND hwnd)
 	return true;
 }
 
-bool detectPatchStatus(std::wstring filepath, HWND hwnd)
+// 0 -> error opening file
+// 1 -> app status patched
+// 2 -> app status unpatched
+unsigned int detectPatchStatus(std::wstring filepath, HWND hwnd)
 {
 	FILE* pFile;
 
 	// open file
-	_wfopen_s(&pFile, filepath.c_str(), L"r+");
+	_wfopen_s(&pFile, filepath.c_str(), L"r");
 	if (!pFile)
 	{
 		catchOpenFileError(hwnd);
-		return false;
+		return 0;
 	}
 
 	// point to offset position
@@ -149,5 +152,8 @@ bool detectPatchStatus(std::wstring filepath, HWND hwnd)
 	fclose(pFile);
 
 	// check if LAA flag is set (6th bit) and return
-	return laa_bitset[5] == true;
+	if (laa_bitset[5] == true)
+		return 1;
+
+	return 2;
 }

@@ -4,6 +4,13 @@
 #define UNICODE
 #endif 
 
+// application meta data
+#define APP_NAME L"4GB Patcher"
+
+// window parameters
+#define WINDOW_SIZE_X 420
+#define WINDOW_SIZE_Y 175
+
 // offset and characteristics byte position
 #define LAA_BYTE_POSITION 256 + 4 + PE_offset + 18
 #define OFFSET_POSITION 0x3c
@@ -16,14 +23,30 @@
 #define IDC_TEXT_STATUS (104)
 #define IDC_TEXT_PATH (105)
 
-#define OUT_TEXT_APPSTATUS_NO_EXE "Choose file to view application status"
-#define OUT_TEXT_APPSTATUS_PATCHED L"Application status:   PATCHED"
-#define OUT_TEXT_APPSTATUS_UNPATCHED L"Application status: UNPATCHED"
-
+// button labels
 #define BTN_TEXT_PATCH "Patch"
 #define BTN_TEXT_UNPATCH "Unpatch"
 #define BTN_TEXT_CLOSE "Close"
 #define BTN_TEXT_CHOOSE "Choose file"
+
+// texts the user will see
+#define OUT_TEXT_APPSTATUS_NO_EXE L"Choose file to view application status"
+#define OUT_TEXT_APPSTATUS_PATCHED L"Application status:   PATCHED"
+#define OUT_TEXT_APPSTATUS_UNPATCHED L"Application status: UNPATCHED"
+
+#define OUT_TEXT_MB_PATCHED L"Application successfully patched!"
+#define OUT_TEXT_MB_UNPATCHED L"Application successfully unpatched!"
+
+// postfixes for the backup file
+#define POSTFIX_PATCHED L".patched.backup"
+#define POSTFIX_UNPATCHED L".unpatched.backup"
+
+// error messages with APP_ prefix to avoid confusion with constants in winerror.h
+#define APP_ERROR_CREATING_BACKUP L"Error occured while creating backup file, aborting"
+#define APP_ERROR_OPENFILE_ACCESS L"Access denied, is the program running or the file read-only?"
+#define APP_ERROR_OPENFILE_FILETOOBIG L"Could not open file because it's too big"
+#define APP_ERROR_OPENFILE_PATHTOOLONG L"Could not open file because file path is too long"
+#define APP_ERROR_OPENFILE_UNKNOWN L"Unknown error occured"
 
 /*
 
