@@ -8,17 +8,14 @@
 - **Executable Patching**: Modifies the header of 32-bit Windows executables.
 - **Patch Status Check**: Displays whether an executable is already patched.
 - **Unpatch Option**: Allows the user to revert the patch, restoring the executable to its original state.
-- **Command-Line Interface**: Simple and efficient CLI for easy integration into build processes or automated scripts.
-- **Cross-Compatibility**: Supports all 32-bit Windows executables.
 
 ## How to Use
 1. Clone the repository and navigate to the project directory.
 2. Compile the project using a C++ compiler.
-3. Run the application with the target executable as an argument: `4GBPatcher.exe <your_executable.exe>`.
-4. Use the provided options to patch, unpatch, or check the patch status of the executable.
+3. Use the provided options to patch, unpatch, or check the patch status of the executable.
 
 ## Future Improvements
-- Add a graphical user interface (GUI) for easier use.
+- Add CLI
 - Implement batch processing for multiple executables at once.
 - Add support for logging and error handling during patching.
 
