@@ -11,10 +11,8 @@
 // C RunTime-Headerdateien
 #include <stdlib.h>
 #include <malloc.h>
-#include <memory.h>
+#include <memory>
 #include <tchar.h>
 
-#include "resource.h"
-
-#include "PathHandler.h"
+#include "Resource.h"
 #include "Utils.h"

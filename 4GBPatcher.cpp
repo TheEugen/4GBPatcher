@@ -7,6 +7,7 @@
 HINSTANCE hInst;                                // Aktuelle Instanz
 WCHAR szTitle[MAX_LOADSTRING];                  // Titelleistentext
 WCHAR szWindowClass[MAX_LOADSTRING];            // Der Klassenname des Hauptfensters.
+HWND hWndMain;
 
 // forward declarations
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -29,13 +30,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // init main window
     if (!InitInstance (hInstance, nCmdShow))
-    {
         return FALSE;
-    }
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_MY4GBPATCHER));
 
     MSG msg;
+
+    auto pathHandler = std::make_unique<PathHandler>();
+    // give main window reference to pathhandler
+    // info: for x64 must be GWLP_USERDATA
+    SetWindowLongPtr(hWndMain, GWL_USERDATA, (LONG)pathHandler.get());
 
     // message loop
     while (GetMessage(&msg, nullptr, 0, 0))
@@ -74,55 +78,44 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   hInst = hInstance; // Instanzenhandle in der globalen Variablen speichern
-
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_SIZE_X, WINDOW_SIZE_Y, nullptr, nullptr, hInstance, nullptr);
-
-   if (!hWnd)
-   {
-      return FALSE;
-   }
-
-   /// 
+    hInst = hInstance; // Instanzenhandle in der globalen Variablen speichern
     
-    // get primary display resolution and place window in the middle of the workarea (screen without taskbar)
-   RECT rc;
-   SystemParametersInfo(SPI_GETWORKAREA, 0, (void*)&rc, 0);
-   int xPos = rc.right / 2 - WINDOW_SIZE_X / 2;
-   int yPos = rc.bottom / 2 - WINDOW_SIZE_Y / 2;
-   SetWindowPos(hWnd, 0, xPos, yPos, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
-
-   // textwindows
-   CreateWindow(TEXT("static"), TEXT(""), WS_VISIBLE | WS_CHILD | SS_CENTERIMAGE | WS_BORDER, 10, 10, 290, 25, hWnd, (HMENU)IDC_TEXT_PATH, NULL, NULL);
-   CreateWindow(TEXT("static"), TEXT("Choose file to view application status"), WS_VISIBLE | WS_CHILD | SS_CENTER | SS_CENTERIMAGE, 0, 50, 420, 25, hWnd, (HMENU)IDC_TEXT_STATUS, NULL, NULL);
-
-   // buttons
-   CreateWindow(TEXT("button"), TEXT(BTN_TEXT_CHOOSE), WS_VISIBLE | WS_CHILD | WS_BORDER, 310, 10, 80, 25, hWnd, (HMENU)IDC_BUTTON_CHOOSEFILE, NULL, NULL);
-   CreateWindow(TEXT("button"), TEXT(BTN_TEXT_CLOSE), WS_VISIBLE | WS_CHILD | WS_BORDER, 290, 100, 100, 25, hWnd, (HMENU)IDC_BUTTON_CLOSE, NULL, NULL);
-   // create buttons and disable until file is chosen
-   EnableWindow(CreateWindow(TEXT("button"), TEXT(BTN_TEXT_PATCH), WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 100, 100, 25, hWnd, (HMENU)IDC_BUTTON_PATCH, NULL, NULL), false);
-   EnableWindow(CreateWindow(TEXT("button"), TEXT(BTN_TEXT_UNPATCH), WS_VISIBLE | WS_CHILD | WS_BORDER, 150, 100, 100, 25, hWnd, (HMENU)IDC_BUTTON_UNPATCH, NULL, NULL), false);
-
-   // init pathhandler
-   PathHandler* pathhandler = new PathHandler();
-
-   // give main window reference to pathhandler
-   // info: for x64 must be GWLP_USERDATA
-   SetWindowLongPtr(hWnd, GWL_USERDATA, (LONG)pathhandler);
-
-   ///
-
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
-
-   return TRUE;
+    hWndMain = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+       CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_SIZE_X, WINDOW_SIZE_Y, nullptr, nullptr, hInstance, nullptr);
+    
+    if (!hWndMain)
+        return false;
+    
+    /// 
+     
+     // get primary display resolution and place window in the middle of the workarea (screen without taskbar)
+    RECT rc;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, (void*)&rc, 0);
+    int xPos = rc.right / 2 - WINDOW_SIZE_X / 2;
+    int yPos = rc.bottom / 2 - WINDOW_SIZE_Y / 2;
+    SetWindowPos(hWndMain, 0, xPos, yPos, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    
+    // textwindows
+    CreateWindow(TEXT("static"), TEXT(""), WS_VISIBLE | WS_CHILD | SS_CENTERIMAGE | WS_BORDER, 10, 10, 290, 25, hWndMain, (HMENU)IDC_TEXT_PATH, nullptr, nullptr);
+    CreateWindow(TEXT("static"), TEXT("Choose file to view application status"), WS_VISIBLE | WS_CHILD | SS_CENTER | SS_CENTERIMAGE, 0, 50, 420, 25, hWndMain, (HMENU)IDC_TEXT_STATUS, nullptr, nullptr);
+    
+    // buttons
+    CreateWindow(TEXT("button"), TEXT(BTN_TEXT_CHOOSE), WS_VISIBLE | WS_CHILD | WS_BORDER, 310, 10, 80, 25, hWndMain, (HMENU)IDC_BUTTON_CHOOSEFILE, nullptr, nullptr);
+    CreateWindow(TEXT("button"), TEXT(BTN_TEXT_CLOSE), WS_VISIBLE | WS_CHILD | WS_BORDER, 290, 100, 100, 25, hWndMain, (HMENU)IDC_BUTTON_CLOSE, nullptr, nullptr);
+    // create buttons and disable until file is chosen
+    CreateWindow(TEXT("button"), TEXT(BTN_TEXT_PATCH), WS_VISIBLE | WS_CHILD | WS_BORDER | WS_DISABLED, 10, 100, 100, 25, hWndMain, (HMENU)IDC_BUTTON_PATCH, nullptr, nullptr);
+    CreateWindow(TEXT("button"), TEXT(BTN_TEXT_UNPATCH), WS_VISIBLE | WS_CHILD | WS_BORDER | WS_DISABLED, 150, 100, 100, 25, hWndMain, (HMENU)IDC_BUTTON_UNPATCH, nullptr, nullptr);
+    
+    ShowWindow(hWndMain, nCmdShow);
+    UpdateWindow(hWndMain);
+    
+    return TRUE;
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     // get pathHandler reference
-    PathHandler* pathHandler = (PathHandler*)GetWindowLongPtr(hWnd, GWL_USERDATA);
+    auto* pathHandler = (PathHandler*)GetWindowLongPtr(hWnd, GWL_USERDATA);
 
     switch (message)
     {
@@ -134,7 +127,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
             case IDC_BUTTON_CHOOSEFILE:
             {
-                HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED |
+                HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED |
                     COINIT_DISABLE_OLE1DDE);
 
                 if (SUCCEEDED(hr))
@@ -142,18 +135,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     IFileOpenDialog* pFileOpen;
 
                     // Create the FileOpenDialog object.
-                    hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
-                        IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
+                    //hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL,
+                    //    IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
+                    hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL,
+                        IID_IFileOpenDialog, std::_Bit_cast<void**>(&pFileOpen));
 
                     // filter for openfile dialog, only .exe should be used
                     // TODO: dll files?
-                    COMDLG_FILTERSPEC filterspec[1] = { {L"Executable Files", L"*.exe"} };
-                    pFileOpen->SetFileTypes(1, filterspec);
+                   std::vector<COMDLG_FILTERSPEC> filterspec = { {L"Executable Files", L"*.exe"} };
+                    pFileOpen->SetFileTypes(filterspec.size(), filterspec.data());
 
                     if (SUCCEEDED(hr))
                     {
                         // Show the Open dialog box.
-                        hr = pFileOpen->Show(NULL);
+                        hr = pFileOpen->Show(nullptr);
 
                         // Get the file name from the dialog box.
                         if (SUCCEEDED(hr))
@@ -183,9 +178,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                         // find handle to filepath window
                                         HWND hwndFilepath = GetDlgItem(hWnd, IDC_TEXT_PATH);
 
+                                        // TODO: implement patchStatus == 0
                                         if (patchStatus == 1)
                                         {
-                                            OutputDebugStringW(TEXT("status: patched\n"));
+                                            OutputDebugStringW(L"status: patched\n");
 
                                             appStatus = OUT_TEXT_APPSTATUS_PATCHED;
 
@@ -194,7 +190,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                         }
                                         else
                                         {
-                                            OutputDebugStringW(TEXT("status: unpatched\n"));
+                                            OutputDebugStringW(L"status: unpatched\n");
 
                                             appStatus = OUT_TEXT_APPSTATUS_UNPATCHED;
 
@@ -203,10 +199,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                         }
 
                                         // send appstatus to output window
-                                        SendMessage(hwndPatchStatus, WM_SETTEXT, NULL, (LPARAM)appStatus);
+                                        SendMessage(hwndPatchStatus, WM_SETTEXT, 0, (LPARAM)appStatus);
 
                                         // send file path to output window
-                                        SendMessage(hwndFilepath, WM_SETTEXT, NULL, (LPARAM)pathHandler->getPath().c_str());
+                                        SendMessage(hwndFilepath, WM_SETTEXT, 0, (LPARAM)pathHandler->getPath().c_str());
                                     }
                                 }
 
@@ -225,9 +221,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             case IDC_BUTTON_PATCH:
             {
-                // debug
-                OutputDebugStringW(TEXT("received patch btn click"));
-
                 // patch the file
                 if (patchFile(pathHandler->getPath(), true, hWnd))
                 {
@@ -240,7 +233,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     toggleButtons(hWnd, true);
 
                     // send appstatus to output window
-                    SendMessage(hWndPatchStatus, WM_SETTEXT, NULL, (LPARAM)outputStatusW);
+                    SendMessage(hWndPatchStatus, WM_SETTEXT, 0, (LPARAM)outputStatusW);
 
                     // show "successfully un/patched!" message box to user
                     MessageBox(hWnd, messageBoxWStr, APP_NAME, MB_OK);
@@ -250,9 +243,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             case IDC_BUTTON_UNPATCH:
             {
-                // debug
-                OutputDebugStringW(TEXT("received unpatch btn click"));
-
                 // patch the file
                 if (patchFile(pathHandler->getPath(), false, hWnd))
                 {
@@ -265,7 +255,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     toggleButtons(hWnd, false);
 
                     // send appstatus to output window
-                    SendMessage(hWndPatchStatus, WM_SETTEXT, NULL, (LPARAM)outputStatusW);
+                    SendMessage(hWndPatchStatus, WM_SETTEXT, 0, (LPARAM)outputStatusW);
 
                     // show "successfully un/patched!" message box to user
                     MessageBox(hWnd, messageBoxWStr, APP_NAME, MB_OK);
@@ -273,12 +263,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 break;
             }
-            case IDC_BUTTON_CLOSE:
-                DestroyWindow(hWnd);
-                break;
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
                 break;
+            case IDC_BUTTON_CLOSE:
             case IDM_EXIT:
                 DestroyWindow(hWnd);
                 break;
@@ -289,7 +277,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_CTLCOLORSTATIC:
     {
-        HDC hdcStatic = (HDC)wParam;
+        auto hdcStatic = (HDC)wParam;
 
         // make text black
         SetTextColor(hdcStatic, RGB(0, 0, 0));
@@ -303,14 +291,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hWnd, &ps);
+        //HDC hdc = 
+        BeginPaint(hWnd, &ps);
         
         EndPaint(hWnd, &ps);
     }
         break;
     case WM_DESTROY:
-        // TODO: check if valid and necessary
-        delete pathHandler;
         PostQuitMessage(0);
         break;
     default:
@@ -334,6 +321,8 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
+        break;
+    default:
         break;
     }
     return (INT_PTR)FALSE;

@@ -50,6 +50,9 @@
 #define IDC_TEXT_STATUS 104
 #define IDC_TEXT_PATH 105
 
+// main handle
+#define IDC_MAIN_WINDOW 106
+
 // button labels
 #define BTN_TEXT_PATCH "Patch"
 #define BTN_TEXT_UNPATCH "Unpatch"

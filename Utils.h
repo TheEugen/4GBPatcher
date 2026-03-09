@@ -10,6 +10,17 @@
 #include "Resource.h"
 
 
+
+
+class PathHandler
+{
+	std::wstring m_filepath;
+public:
+
+	void setPath(std::wstring_view const& filepath) { m_filepath = filepath; }
+	std::wstring getPath() const { return m_filepath; }
+};
+
 static void catchOpenFileError(HWND hWnd)
 {
 	std::wstring errorMsg;
@@ -44,18 +55,15 @@ static void catchOpenFileError(HWND hWnd)
 }
 
 
-static bool patchFile(std::wstring filepath, bool toBePatched, HWND hWnd)
+static bool patchFile(std::wstring const& filepath, bool toBePatched, HWND hWnd)
 {
 	FILE* pFile;
 
 	// copy file and create backup
 	std::error_code ec;
-	std::wstring bak_filepath;
+	std::filesystem::path bak_filepath;
 
-	if (toBePatched)
-		bak_filepath = filepath + POSTFIX_UNPATCHED;
-	else
-		bak_filepath = filepath + POSTFIX_PATCHED;
+	bak_filepath = toBePatched ? filepath + POSTFIX_UNPATCHED : filepath + POSTFIX_PATCHED;
 
 	auto copy_options = std::filesystem::copy_options::none;
 
@@ -63,20 +71,12 @@ static bool patchFile(std::wstring filepath, bool toBePatched, HWND hWnd)
 	if (std::filesystem::is_regular_file(bak_filepath))
 	{
 		// show window to ask user for permission to overwrite existing file
-		const std::wstring askOverwriteWStr = L"File " + bak_filepath + L" already exists, do you want to overwrite it?";
+		const std::wstring askOverwriteWStr = L"File " + (std::wstring)bak_filepath + L" already exists, do you want to overwrite it?";
 		const int overwriteYesNo = MessageBox(hWnd, askOverwriteWStr.c_str(), APP_NAME, MB_YESNO);
-		switch (overwriteYesNo)
-		{
-		case IDYES:
-		{
+		if(overwriteYesNo == IDYES)
 			copy_options = std::filesystem::copy_options::none | std::filesystem::copy_options::overwrite_existing;
-			break;
-		}
-		case IDNO:
-		{
+		else
 			return false;
-		}
-		}
 	}
 
 	// create backup, if it fails -> not enough memory? program will terminate
@@ -86,6 +86,7 @@ static bool patchFile(std::wstring filepath, bool toBePatched, HWND hWnd)
 		return false;
 	}
 
+	// TODO: replace with win32 CreateFile
 	// open file
 	_wfopen_s(&pFile, filepath.c_str(), L"r+");
 	if (!pFile)
@@ -98,7 +99,7 @@ static bool patchFile(std::wstring filepath, bool toBePatched, HWND hWnd)
 	fseek(pFile, OFFSET_POSITION, SEEK_SET);
 
 	// extract PE offset
-	const unsigned int PE_offset = (unsigned int)fgetc(pFile);
+	const auto PE_offset = (unsigned int)fgetc(pFile);
 
 	// point to laa flag position
 	fseek(pFile, LAA_BYTE_POSITION, SEEK_SET);
@@ -124,7 +125,7 @@ static bool patchFile(std::wstring filepath, bool toBePatched, HWND hWnd)
 // 0 -> error opening file
 // 1 -> app status patched
 // 2 -> app status unpatched
-static unsigned int detectPatchStatus(std::wstring filepath, HWND hWnd)
+static unsigned int detectPatchStatus(std::wstring const& filepath, HWND hWnd)
 {
 	FILE* pFile;
 
@@ -140,7 +141,7 @@ static unsigned int detectPatchStatus(std::wstring filepath, HWND hWnd)
 	fseek(pFile, OFFSET_POSITION, SEEK_SET);
 
 	// get offset
-	const unsigned int PE_offset = (unsigned int)fgetc(pFile);
+	const auto PE_offset = (unsigned int)fgetc(pFile);
 
 	// point to laa flag position
 	fseek(pFile, LAA_BYTE_POSITION, SEEK_SET);
